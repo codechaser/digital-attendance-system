@@ -3,13 +3,15 @@ const authorizeRoles = (...allowedRoles) => {
 
         if (!req.user) {
             return res.status(401).json({
-                message: "Not authorized"
+                message: "Not authorized",
+                ...(req.requestId ? { requestId: req.requestId } : {})
             });
         }
 
         if (!allowedRoles.includes(req.user.role)) {
             return res.status(403).json({
-                message: "Access denied. You do not have permission."
+                message: "Access denied. You do not have permission.",
+                ...(req.requestId ? { requestId: req.requestId } : {})
             });
         }
 

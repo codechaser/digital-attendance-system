@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { API_BASE_URL, API_ORIGIN } from "../services/config";
+import { API_BASE_URL, mediaUrl } from "../services/config";
 import LoadingSpinner from "./LoadingSpinner";
 
 function PendingAttendance() {
@@ -342,7 +342,7 @@ function PendingAttendance() {
                                             <strong>📸 Group Photo:</strong>
 
                                             <img
-                                                src={`${API_ORIGIN}${record.groupPhotoUrl}`}
+                                                src={mediaUrl(record.groupPhotoUrl)}
                                                 alt="Attendance Group"
                                                 style={{
                                                     width: "100%",

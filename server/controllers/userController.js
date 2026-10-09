@@ -1,6 +1,7 @@
-const axios = require("axios");
-const FormData = require("form-data");
 const User = require("../models/User");
+const enrollFaceImage = require("../services/faceEnrollmentService");
+const { saveFacePhoto, removeStoredImage } = require("../services/objectStorageService");
+const getSafeErrorDetails = require("../utils/safeErrorDetails");
 
 const getFacultyProfile = async (req, res) => {
     try {
@@ -57,44 +58,23 @@ const getFacultyProfile = async (req, res) => {
 };
 
 const enrollFace = async (req, res) => {
+    let stagedFacePhotoUrl = null;
+    const startedAt = Date.now();
+    let stage = "request validation";
+
     try {
+        console.info("Face re-enrollment processing started", {
+            requestId: req.requestId,
+            imageBytes: req.file?.size || 0
+        });
+
         if (!req.file) {
             return res.status(400).json({
                 message: "Please upload a face image."
             });
         }
 
-        const formData = new FormData();
-
-        formData.append(
-            "file",
-            req.file.buffer,
-            {
-                filename: req.file.originalname,
-                contentType: req.file.mimetype
-            }
-        );
-
-        const aiResponse = await axios.post(
-            `${process.env.FACE_SERVICE_URL}/enroll`,
-            formData,
-            {
-                headers: {
-                    ...formData.getHeaders()
-                },
-                maxBodyLength: Infinity
-            }
-        );
-
-        const embedding = aiResponse.data.embedding;
-
-        if (!embedding || embedding.length !== 512) {
-            return res.status(500).json({
-                message:
-                    "Invalid face embedding received from AI service."
-            });
-        }
-
+        stage = "user lookup";
         const user = await User.findById(req.user.id);
 
         if (!user) {
@@ -110,27 +90,56 @@ const enrollFace = async (req, res) => {
             });
         }
 
+        const previousFacePhotoUrl = user.facePhotoUrl;
+        stage = "Cloudinary photo upload";
+        const photoUploadStartedAt = Date.now();
+        console.info("Enrollment photo storage started", { requestId: req.requestId });
+        const savedPhoto = await saveFacePhoto(req.file);
+        stagedFacePhotoUrl = savedPhoto.url;
+        console.info("Enrollment photo storage completed", {
+            requestId: req.requestId,
+            elapsedMs: Date.now() - photoUploadStartedAt
+        });
+
+        stage = "InsightFace enrollment";
+        const embedding = await enrollFaceImage(req.file, req.requestId);
+
+        stage = "MongoDB user save";
         user.faceEmbedding = embedding;
+        user.facePhotoUrl = savedPhoto.url;
 
         await user.save();
+        stagedFacePhotoUrl = null;
+        console.info("Face re-enrollment processing completed", {
+            requestId: req.requestId,
+            elapsedMs: Date.now() - startedAt,
+            embeddingLength: embedding.length
+        });
+        await removeStoredImage(previousFacePhotoUrl);
 
         return res.status(200).json({
             message: "Face enrolled successfully.",
-            faceEnrolled: true
+            faceEnrolled: true,
+            facePhotoUrl: user.facePhotoUrl
         });
 
     } catch (error) {
-        console.error(
-            "Face Enrollment Error:",
-            error.response?.data || error.message
-        );
+        const status = Number(error.statusCode || error.status) || 500;
+        console.error("Face re-enrollment processing failed", {
+            requestId: req.requestId,
+            stage,
+            elapsedMs: Date.now() - startedAt,
+            status,
+            upstreamStatus: error.response?.status || null,
+            ...getSafeErrorDetails(error)
+        });
+        await removeStoredImage(stagedFacePhotoUrl);
 
-        return res.status(
-            error.response?.status || 500
-        ).json({
-            message:
-                error.response?.data?.detail ||
-                "Unable to enroll face."
+        return res.status(status).json({
+            message: error.publicMessage || error.response?.data?.detail ||
+                (status < 500 ? error.message : `Unable to complete ${stage.toLowerCase()}. Please try again later.`),
+            requestId: req.requestId,
+            stage
         });
     }
 };

@@ -1,24 +1,22 @@
 const User = require("../models/User");
 const mongoose = require("mongoose");
 const axios = require("axios");
+const { getFaceServiceUrl } = require("../config/faceService");
 
 const getSystemSettings = async (req, res) => {
-    const faceServiceUrl = process.env.FACE_SERVICE_URL;
     let aiServiceStatus = "Unavailable";
 
-    if (faceServiceUrl) {
-        try {
-            const response = await axios.get(
-                `${faceServiceUrl}/health`,
-                { timeout: 3000 }
-            );
+    try {
+        const response = await axios.get(
+            `${getFaceServiceUrl()}/health`,
+            { timeout: 3000 }
+        );
 
-            if (response.data?.status === "success") {
-                aiServiceStatus = "Operational";
-            }
-        } catch (error) {
-            aiServiceStatus = "Unavailable";
+        if (response.data?.status === "success") {
+            aiServiceStatus = "Operational";
         }
+    } catch (error) {
+        aiServiceStatus = "Unavailable";
     }
 
     return res.status(200).json({
@@ -73,7 +71,7 @@ const getAllFaculty = async (req, res) => {
             await User.find({
                 role: "faculty"
             })
-                .select("-password")
+                .select("name email role department facultyStatus facultyRegisteredAt facultyApprovedAt createdAt")
                 .sort({
                     createdAt: -1
                 });
@@ -299,7 +297,7 @@ const getAllUsers = async (req, res) => {
 
         const users =
             await User.find({})
-                .select("-password")
+                .select("name email role department studentId facultyStatus facultyRegisteredAt facultyApprovedAt createdAt")
                 .sort({
                     createdAt: -1
                 });

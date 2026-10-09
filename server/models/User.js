@@ -37,6 +37,11 @@ const userSchema = new mongoose.Schema(
          default: null
          },
 
+        facePhotoUrl: {
+            type: String,
+            default: null
+        },
+
         department: {
             type: String,
             default: null

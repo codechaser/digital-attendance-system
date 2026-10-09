@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const getSafeErrorDetails = require("../utils/safeErrorDetails");
 
 const protect = async (req, res, next) => {
     try {
@@ -10,7 +11,8 @@ const protect = async (req, res, next) => {
             !authHeader.startsWith("Bearer ")
         ) {
             return res.status(401).json({
-                message: "Not authorized. Token required."
+                message: "Not authorized. Token required.",
+                ...(req.requestId ? { requestId: req.requestId } : {})
             });
         }
 
@@ -23,11 +25,12 @@ const protect = async (req, res, next) => {
 
         // Get latest user information from database
         const user = await User.findById(decoded.id)
-            .select("-password");
+            .select("-password -faceEmbedding -resetPasswordToken -resetPasswordExpires");
 
         if (!user) {
             return res.status(401).json({
-                message: "User no longer exists."
+                message: "User no longer exists.",
+                ...(req.requestId ? { requestId: req.requestId } : {})
             });
         }
 
@@ -38,13 +41,16 @@ const protect = async (req, res, next) => {
 
     } catch (error) {
 
-        console.error(
-            "Auth Middleware Error:",
-            error.message
-        );
+        console.error("Authentication middleware failed", {
+            requestId: req.requestId || null,
+            method: req.method,
+            path: req.path,
+            ...getSafeErrorDetails(error)
+        });
 
         return res.status(401).json({
-            message: "Invalid or expired token"
+            message: "Invalid or expired token",
+            ...(req.requestId ? { requestId: req.requestId } : {})
         });
     }
 };

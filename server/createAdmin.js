@@ -17,10 +17,12 @@ const createAdmin = async () => {
             "MongoDB Connected Successfully"
         );
 
-        // Admin credentials
-        const name = "Admin";
-        const email = "admin@gmail.com";
-        const password = "Admin@123";
+        const name = process.env.ADMIN_NAME?.trim();
+        const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+        const password = process.env.ADMIN_PASSWORD;
+        if (!name || !email || !password || password.length < 12) {
+            throw new Error("Set ADMIN_NAME, ADMIN_EMAIL, and an ADMIN_PASSWORD of at least 12 characters.");
+        }
 
         // Check if admin already exists
         const existingAdmin =
@@ -70,11 +72,6 @@ const createAdmin = async () => {
         console.log(
             "Email:",
             admin.email
-        );
-
-        console.log(
-            "Password:",
-            password
         );
 
         console.log(

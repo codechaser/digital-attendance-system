@@ -1,5 +1,7 @@
 const express = require("express");
 const router = express.Router();
+const uploadFace = require("../middleware/faceUploadMiddleware");
+const enrollmentDiagnostics = require("../middleware/enrollmentDiagnostics");
 
 const {
     registerUser,
@@ -9,8 +11,18 @@ const {
     resetPassword
 } = require("../controllers/authController");
 
-// Register
-router.post("/register", registerUser);
+// Register; return upload validation errors as a readable API response.
+router.post("/register", enrollmentDiagnostics, (req, res, next) => {
+    uploadFace.single("face")(req, res, (error) => {
+        if (error) {
+            const message = error.code === "LIMIT_FILE_SIZE"
+                ? "Photo must be 5 MB or smaller."
+                : error.message || "Unable to upload photo.";
+            return res.status(400).json({ message });
+        }
+        next();
+    });
+}, registerUser);
 
 // Login
 router.post("/login", loginUser);

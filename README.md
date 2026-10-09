@@ -58,7 +58,7 @@ Digital Attendance System is a final-year college project that combines a React 
 
 ```text
 client/       React and Vite browser application
-server/       Express API, authentication, business logic, models, and uploads
+server/       Express API, authentication, business logic, and models
 face-service/ FastAPI face detection and recognition service
 postman/      API collections, environments, flows, and specifications
 ```
@@ -88,7 +88,8 @@ MongoDB stores users, subjects, attendance records, roles, faculty status, and e
 - Passwords are hashed with bcryptjs.
 - Password reset uses an email OTP workflow.
 - CORS is restricted through `CLIENT_URL`.
-- Secrets, SMTP credentials, database URLs, and uploaded files must remain local or be supplied through deployment secrets.
+- Secrets, SMTP credentials, and database URLs must be supplied through deployment secrets.
+- Face and group images are uploaded to Cloudinary; MongoDB stores each asset's HTTPS `secure_url` in `User.facePhotoUrl` and `Attendance.groupPhotoUrl`.
 - Do not place backend secrets in `VITE_*` variables because frontend variables are sent to the browser.
 
 ## Prerequisites
@@ -147,18 +148,62 @@ Create local environment files from the examples. Never commit real values.
 - `MONGO_URI`
 - `JWT_SECRET`
 - `FACE_SERVICE_URL`
+- `FACE_SERVICE_TOKEN`
 - `CAMPUS_LATITUDE`, `CAMPUS_LONGITUDE`, `CAMPUS_RADIUS`
 - `BREVO_SMTP_HOST`, `BREVO_SMTP_PORT`, `BREVO_SMTP_USER`, `BREVO_SMTP_KEY`
 - `BREVO_FROM_EMAIL`, `BREVO_FROM_NAME`
+- `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`
 - `ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` when running the admin setup script
 
 ### Frontend `client/.env`
 
 - `VITE_API_BASE_URL`
 
-## Deployment Status
+## Production Deployment
 
-Deployment is not yet configured. The project currently targets local development. Production deployment will require managed secrets, HTTPS, persistent and protected upload storage, a hosted MongoDB instance, private or authenticated AI-service communication, monitoring, backups, and additional production testing.
+The frontend is a Vite static site, and the backend and face service are separate Render web services. Images use Cloudinary object storage so their URLs persist across service restarts and deployments. Use HTTPS URLs and keep all private values in the relevant provider's environment settings.
+
+### Render AI service
+
+- Root Directory: `face-service`
+- Runtime: Python 3
+- Python version: `3.11.11` (pinned in `.python-version`)
+- Environment setting: `PYTHON_VERSION=3.11.11` (optional when Render reads `.python-version`)
+- Build Command: `pip install -r requirements.txt`
+- Start Command: `uvicorn app:app --host 0.0.0.0 --port $PORT`
+- Health Check Path: `/health`
+- Environment variable: `FACE_SERVICE_TOKEN` (same value as the backend)
+
+### Render backend service
+
+- Root Directory: `server`
+- Runtime: Node
+- Node version: `24.21.0` (pinned in `.node-version`)
+- Environment setting: `NODE_VERSION=24.21.0` (optional when Render reads `.node-version`)
+- Build Command: `npm ci`
+- Start Command: `npm start`
+- Health Check Path: `/health`
+- Set `NODE_ENV=production`; Render supplies `PORT`.
+- Set `FACE_SERVICE_URL` to the deployed AI service base URL, without an endpoint path.
+- Set the same random `FACE_SERVICE_TOKEN` (at least 32 characters) on the AI service and backend. The backend sends it only to `/enroll` and `/recognize`; `/health` remains available for health checks.
+- Set `CLIENT_URL` to the Vercel production origin. Multiple allowed origins can be comma-separated.
+
+### Vercel frontend
+
+- Root Directory: `client`
+- Framework Preset: Vite
+- Node.js Version: `24.x`
+- Build Command: `npm run build`
+- Output Directory: `dist`
+- Environment variable: `VITE_API_BASE_URL=https://<backend-service>.onrender.com/api`
+
+Set `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET` in the backend service. The Cloudinary `secure_url` values are HTTPS delivery URLs; by default these assets are publicly retrievable by anyone who has the URL, so configure access controls and privacy notices appropriate for face imagery before production use.
+
+Before switching traffic from an existing deployment, if its `server/uploads/face-photos` and `server/uploads/group-photos` files still exist, run `npm run migrate-uploads` from `server/` with `MONGO_URI` and the three Cloudinary variables set. It replaces old local upload URLs in MongoDB while retaining the same schema fields. Missing local files cannot be recovered by this script; affected users must upload a new face photo, and old group-photo previews will remain unavailable.
+
+Configure MongoDB Atlas network access to allow the backend service, create a database user with only the required database permissions, and set its connection string as `MONGO_URI`. Set `JWT_SECRET` to a random value of at least 32 characters. Set the campus coordinates and Brevo SMTP variables listed above. Create the admin account separately with the `ADMIN_*` variables and run `npm run create-admin` from the backend service directory; do not put those credentials in source control.
+
+Before launch, verify the AI `/health` endpoint, backend `/health` endpoint, registration, email password reset, both image upload flows, login, and attendance workflows from the deployed frontend. Configure backups, monitor resource usage, and restrict the AI service to backend traffic where the hosting plan/network supports it.
 
 ## Project Context
 

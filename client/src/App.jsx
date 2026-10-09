@@ -11,15 +11,44 @@ import AdminAttendance from "./components/AdminAttendance";
 import SystemSettings from "./components/SystemSettings";
 import SuccessToast from "./components/SuccessToast";
 import LoadingSpinner from "./components/LoadingSpinner";
-import { API_BASE_URL } from "./services/config";
+import { API_BASE_URL, mediaUrl } from "./services/config";
 
 import "./App.css";
+
+function ThemeToggle({ theme, onToggle }) {
+    const nextTheme = theme === "dark" ? "light" : "dark";
+
+    return (
+        <button
+            className="theme-toggle"
+            type="button"
+            aria-label={`Switch to ${nextTheme} mode`}
+            aria-pressed={theme === "dark"}
+            onClick={onToggle}
+        >
+            {theme === "dark" ? "☀️ Light" : "🌙 Dark"}
+        </button>
+    );
+}
 
 function App() {
 
     const [isRegister, setIsRegister] = useState(false);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [loggedInUser, setLoggedInUser] = useState(null);
+    const [failedFacePhotoUrl, setFailedFacePhotoUrl] = useState("");
+    const [theme, setTheme] = useState(() =>
+        localStorage.getItem("theme") === "dark" ? "dark" : "light"
+    );
+
+    useEffect(() => {
+        document.documentElement.dataset.theme = theme;
+        localStorage.setItem("theme", theme);
+    }, [theme]);
+
+    const toggleTheme = () => {
+        setTheme((currentTheme) => currentTheme === "dark" ? "light" : "dark");
+    };
 
     // ======================================================
     // FORGOT PASSWORD / OTP
@@ -77,6 +106,11 @@ function App() {
     const [password, setPassword] = useState("");
     const [role, setRole] = useState("student");
     const [department, setDepartment] = useState("");
+    const [facePhoto, setFacePhoto] = useState(null);
+    const [facePhotoPreview, setFacePhotoPreview] = useState("");
+    const [profilePhotoUpdating, setProfilePhotoUpdating] = useState(false);
+    const [profilePhotoError, setProfilePhotoError] = useState("");
+    const [authError, setAuthError] = useState("");
     const [successMessage, setSuccessMessage] = useState("");
     const [authSubmitting, setAuthSubmitting] = useState(false);
 
@@ -92,6 +126,113 @@ function App() {
         return () => window.clearTimeout(timeoutId);
     }, [successMessage]);
 
+    useEffect(() => {
+        const token = localStorage.getItem("token");
+        if (!token) return undefined;
+
+        let active = true;
+        const restoreSession = async () => {
+            try {
+                const response = await axios.get(`${API_BASE_URL}/user/profile`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (!active) return;
+
+                setLoggedInUser(response.data.user);
+                setIsLoggedIn(true);
+                localStorage.setItem("user", JSON.stringify(response.data.user));
+            } catch (error) {
+                if (error.response?.status === 401) {
+                    localStorage.removeItem("token");
+                    localStorage.removeItem("user");
+                }
+            }
+        };
+
+        restoreSession();
+        return () => { active = false; };
+    }, []);
+
+    const handleFacePhotoChange = (event) => {
+        const file = event.target.files?.[0] || null;
+        setFacePhoto(file);
+        setFacePhotoPreview("");
+        setAuthError("");
+
+        if (!file) return;
+
+        const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+        if (!allowedTypes.includes(file.type)) {
+            setAuthError("Choose a JPG, JPEG, PNG, or WEBP image.");
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            setAuthError("Photo must be 5 MB or smaller.");
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = () => setFacePhotoPreview(String(reader.result || ""));
+        reader.readAsDataURL(file);
+    };
+
+    const handleProfileFacePhotoChange = async (event) => {
+        const file = event.target.files?.[0];
+        event.target.value = "";
+        if (!file) return;
+
+        const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+        if (!allowedTypes.includes(file.type)) {
+            setProfilePhotoError("Choose a JPG, JPEG, PNG, or WEBP image.");
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            setProfilePhotoError("Photo must be 5 MB or smaller.");
+            return;
+        }
+
+        setProfilePhotoUpdating(true);
+        setProfilePhotoError("");
+
+        try {
+            const registration = new FormData();
+            registration.append("face", file);
+            const token = localStorage.getItem("token");
+            const requestConfig = {
+                headers: { Authorization: `Bearer ${token}` },
+                timeout: 180000
+            };
+            await axios.post(
+                `${API_BASE_URL}/user/enroll-face`,
+                registration,
+                requestConfig
+            );
+
+            const profileResponse = await axios.get(
+                `${API_BASE_URL}/user/profile`,
+                { headers: requestConfig.headers }
+            );
+            const updatedUser = profileResponse.data.user;
+            if (!updatedUser?.facePhotoUrl) {
+                throw new Error("The server did not return the saved face photo URL. Please try again.");
+            }
+
+            setLoggedInUser(updatedUser);
+            localStorage.setItem("user", JSON.stringify(updatedUser));
+            setSuccessMessage("Registered face photo updated.");
+        } catch (error) {
+            const message = error.response?.data?.message ||
+                (error.code === "ECONNABORTED" || error.code === "ETIMEDOUT"
+                    ? "Face enrollment took too long. Please try again with a clear photo."
+                    : error.message) ||
+                "Unable to update your face photo. Please try again.";
+            const requestId = error.response?.data?.requestId;
+            setProfilePhotoError(requestId ? `${message} (Request ID: ${requestId})` : message);
+        } finally {
+            setProfilePhotoUpdating(false);
+        }
+    };
+
     // ======================================================
     // LOGIN / REGISTER
     // ======================================================
@@ -104,6 +245,7 @@ function App() {
         }
 
         setAuthSubmitting(true);
+        setAuthError("");
 
         try {
 
@@ -113,15 +255,34 @@ function App() {
 
             if (isRegister) {
 
+                if (role === "student") {
+                    if (!facePhoto) {
+                        setAuthError("Please choose a face photo to enroll your face.");
+                        return;
+                    }
+                    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+                    if (!allowedTypes.includes(facePhoto.type)) {
+                        setAuthError("Choose a JPG, JPEG, PNG, or WEBP image.");
+                        return;
+                    }
+                    if (facePhoto.size > 5 * 1024 * 1024) {
+                        setAuthError("Photo must be 5 MB or smaller.");
+                        return;
+                    }
+                }
+
+                const registration = new FormData();
+                registration.append("name", name);
+                registration.append("email", email);
+                registration.append("password", password);
+                registration.append("role", role);
+                registration.append("department", department);
+                if (facePhoto && role === "student") registration.append("face", facePhoto);
+
                 const response = await axios.post(
                     `${API_BASE_URL}/auth/register`,
-                    {
-                        name,
-                        email,
-                        password,
-                        role,
-                        department
-                    }
+                    registration,
+                    { timeout: role === "student" ? 180000 : 30000 }
                 );
 
                 setSuccessMessage(
@@ -134,6 +295,8 @@ function App() {
                 setPassword("");
                 setRole("student");
                 setDepartment("");
+                setFacePhoto(null);
+                setFacePhotoPreview("");
 
                 setIsRegister(false);
             }
@@ -157,14 +320,18 @@ function App() {
                     response.data.token
                 );
 
-                localStorage.setItem(
-                    "user",
-                    JSON.stringify(response.data.user)
+                const profileResponse = await axios.get(
+                    `${API_BASE_URL}/user/profile`,
+                    {
+                        headers: {
+                            Authorization: `Bearer ${response.data.token}`
+                        }
+                    }
                 );
+                const currentUser = profileResponse.data.user;
 
-                setLoggedInUser(
-                    response.data.user
-                );
+                localStorage.setItem("user", JSON.stringify(currentUser));
+                setLoggedInUser(currentUser);
 
                 setIsLoggedIn(true);
 
@@ -173,15 +340,12 @@ function App() {
 
         } catch (error) {
 
-            console.error(
-                "Authentication Error:",
-                error
-            );
-
-            alert(
-                error.response?.data?.message ||
-                "Something went wrong"
-            );
+            const message = error.response?.data?.message ||
+                (error.code === "ECONNABORTED" || error.code === "ETIMEDOUT"
+                    ? "Face enrollment took too long. Please try again with a clear photo."
+                    : "Something went wrong. Please try again.");
+            const requestId = error.response?.data?.requestId;
+            setAuthError(requestId ? `${message} (Request ID: ${requestId})` : message);
         } finally {
             setAuthSubmitting(false);
         }
@@ -616,6 +780,67 @@ function App() {
                                 "N/A"}
                         </p>
 
+                        <p className="profile-face-photo-row">
+                            <strong>Face Photo:</strong>
+                            {loggedInUser?.facePhotoUrl && mediaUrl(loggedInUser.facePhotoUrl) && failedFacePhotoUrl !== loggedInUser.facePhotoUrl ? (
+                                <span className="registered-face-photo-group">
+                                    <a
+                                        className="registered-face-photo-preview-link"
+                                        href={mediaUrl(loggedInUser.facePhotoUrl)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        aria-label="Open registered face photo"
+                                    >
+                                        <img
+                                            className="registered-face-photo"
+                                            src={mediaUrl(loggedInUser.facePhotoUrl)}
+                                            alt="Registered student"
+                                            onError={() => setFailedFacePhotoUrl(loggedInUser.facePhotoUrl)}
+                                        />
+                                    </a>
+                                    <a
+                                        className="face-photo-link"
+                                        href={mediaUrl(loggedInUser.facePhotoUrl)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        📷 View Registered Face Photo
+                                    </a>
+                                </span>
+                            ) : (
+                                <span className="face-photo-unavailable" role="status">
+                                    Face photo unavailable
+                                </span>
+                            )}
+                        </p>
+                        {(!loggedInUser?.facePhotoUrl || failedFacePhotoUrl === loggedInUser.facePhotoUrl) && (
+                            <div className="profile-face-photo-actions">
+                                <input
+                                    id="profile-face-photo-upload"
+                                    className="visually-hidden-file-input"
+                                    type="file"
+                                    accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                                    onChange={handleProfileFacePhotoChange}
+                                    disabled={profilePhotoUpdating}
+                                />
+                                <label
+                                    className={`face-photo-upload-button ${profilePhotoUpdating ? "is-busy" : ""}`}
+                                    htmlFor="profile-face-photo-upload"
+                                >
+                                    {profilePhotoUpdating
+                                        ? "Enrolling Face..."
+                                        : failedFacePhotoUrl === loggedInUser?.facePhotoUrl
+                                            ? "Re-enroll Face Photo"
+                                            : "Upload Face Photo"}
+                                </label>
+                                {profilePhotoError && (
+                                    <span className="profile-face-photo-error" role="alert">
+                                        {profilePhotoError}
+                                    </span>
+                                )}
+                            </div>
+                        )}
+
                     </div>
 
                 </div>
@@ -939,6 +1164,7 @@ function App() {
             return (
                 <>
                     <SuccessToast message={successMessage} />
+                    <ThemeToggle theme={theme} onToggle={toggleTheme} />
                     <StudentDashboard />
                 </>
             );
@@ -949,6 +1175,7 @@ function App() {
             return (
                 <>
                     <SuccessToast message={successMessage} />
+                    <ThemeToggle theme={theme} onToggle={toggleTheme} />
                     <FacultyDashboard
                         user={loggedInUser}
                         onLogout={handleLogout}
@@ -961,6 +1188,7 @@ function App() {
             return (
                 <>
                     <SuccessToast message={successMessage} />
+                    <ThemeToggle theme={theme} onToggle={toggleTheme} />
                     <AdminDashboard />
                 </>
             );
@@ -974,17 +1202,38 @@ function App() {
     return (
         <>
             <SuccessToast message={successMessage} />
-            <div className="login-page">
+            <ThemeToggle theme={theme} onToggle={toggleTheme} />
+            <div className={`login-page ${!isForgotPassword ? "registration-page" : ""}`}>
 
-            <div className="login-card">
+            {!isForgotPassword && (
+                <aside className="registration-hero">
+                    <div className="registration-brand"><span>DAS</span><strong>Digital Attendance System</strong></div>
+                    <div className="registration-copy">
+                        <p className="registration-eyebrow">Campus Attendance Portal</p>
+                        <h2>Your attendance, all in one place.</h2>
+                        <p className="registration-description">A secure campus portal to manage attendance, review class records, and keep students and faculty connected.</p>
+                    </div>
+                    <div className="hero-visual" aria-hidden="true"><div className="hero-orbit" /><div className="hero-device" /></div>
+                    <div className="hero-callout face-callout"><span>✓</span><div><strong>AI face check</strong><small>Verified class attendance</small></div></div>
+                    <div className="hero-callout records-callout"><span>●</span><div><strong>Class records</strong><small>Review attendance history</small></div></div>
+                    <div className="registration-audience">Attendance tools for students and faculty</div>
+                </aside>
+            )}
+
+            <div className={`login-card ${!isForgotPassword ? "registration-card" : ""}`}>
+
+                {!isForgotPassword && (
+                    <div className="secure-login-indicator">
+                        <span aria-hidden="true">↔</span>
+                        <strong>Secure sign-in</strong>
+                    </div>
+                )}
 
                 {/* HEADER */}
 
                 <div className="login-header">
 
-                    <div className="logo">
-                        FA
-                    </div>
+                    {isForgotPassword && <div className="logo">FA</div>}
 
                     <h1>
 
@@ -995,8 +1244,8 @@ function App() {
                                     ? "Verify OTP"
                                     : "Reset Password"
                             : isRegister
-                                ? "Create Account"
-                                : "Face Attendance"}
+                                ? "Create an account"
+                                : "Welcome back"}
 
                     </h1>
 
@@ -1009,8 +1258,8 @@ function App() {
                                     ? "Enter the OTP sent to your email"
                                     : "Create a new password"
                             : isRegister
-                                ? "Register for the attendance portal"
-                                : "Smart, secure and automated attendance"}
+                                ? "Register to access the attendance portal"
+                                : "Sign in to access your attendance portal"}
 
                     </p>
 
@@ -1144,6 +1393,8 @@ function App() {
 
                     <form onSubmit={handleSubmit}>
 
+                        {authError && <div className="auth-error" role="alert">{authError}</div>}
+
                         {/* FULL NAME */}
 
                         {isRegister && (
@@ -1250,6 +1501,27 @@ function App() {
 
                                 </div>
 
+                                {role === "student" && (
+                                    <div className="input-group photo-group">
+                                        <label htmlFor="student-face-photo">Student Photo</label>
+                                        <input
+                                            id="student-face-photo"
+                                            type="file"
+                                            accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                                            onChange={handleFacePhotoChange}
+                                            required
+                                        />
+                                        <small>Upload a clear face photo for AI-based attendance recognition.</small>
+                                        <small className="photo-size-note">JPG, JPEG, PNG, or WEBP · Maximum file size: 5 MB.</small>
+                                        {facePhotoPreview && (
+                                            <div className="face-photo-preview">
+                                                <img src={facePhotoPreview} alt="Selected student face preview" />
+                                                <span>{facePhoto.name}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
 
                                 <div className="input-group">
 
@@ -1280,9 +1552,9 @@ function App() {
 
                         <button type="submit" disabled={authSubmitting}>
 
-                            {authSubmitting ? (
-                                <LoadingSpinner
-                                    text={isRegister ? "Registering..." : "Signing in..."}
+                                    {authSubmitting ? (
+                                        <LoadingSpinner
+                                    text={isRegister ? (role === "student" ? "Enrolling Face..." : "Registering...") : "Signing in..."}
                                     size="small"
                                     inline
                                 />

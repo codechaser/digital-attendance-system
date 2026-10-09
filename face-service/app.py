@@ -1,16 +1,98 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException,Form
+import hmac
+import logging
+import os
+import re
+from threading import Lock
+import time
+import uuid
+
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Header, Depends, Request
 from pydantic import BaseModel
+from starlette.concurrency import run_in_threadpool
 import cv2
 import numpy as np
 
 from services.face_detector import FaceDetector
 from services.face_recognizer import FaceRecognizer
 
+logger = logging.getLogger("face-service")
+inference_lock = Lock()
+
+
+def safe_error_detail(error):
+    detail = str(error)
+    detail = re.sub(
+        r"(?i)(token|secret|password|authorization)\s*[:=]\s*[^\s,;]+",
+        r"\1=[redacted]",
+        detail
+    )
+    return detail[:240]
+
+
+def detect_faces_serially(image):
+    # Keep the shared InsightFace model instance serialized across requests.
+    with inference_lock:
+        return detector.detect_faces(image)
 
 app = FastAPI(
     title="Face Attendance AI Service",
     version="1.0.0"
 )
+
+
+@app.middleware("http")
+async def log_face_request(request: Request, call_next):
+    if request.url.path not in ("/enroll", "/recognize"):
+        return await call_next(request)
+
+    supplied_id = request.headers.get("x-request-id", "")
+    request_id = supplied_id if re.fullmatch(r"[0-9a-fA-F-]{36}", supplied_id) else str(uuid.uuid4())
+    request.state.request_id = request_id
+    started_at = time.perf_counter()
+    logger.info(
+        "Face request received request_id=%s method=%s path=%s",
+        request_id,
+        request.method,
+        request.url.path
+    )
+
+    try:
+        response = await call_next(request)
+    except Exception as error:
+        logger.error(
+            "Face request raised request_id=%s elapsed_ms=%d error_type=%s error_detail=%s",
+            request_id,
+            round((time.perf_counter() - started_at) * 1000),
+            type(error).__name__,
+            safe_error_detail(error)
+        )
+        raise
+
+    response.headers["X-Request-ID"] = request_id
+    logger.info(
+        "Face request completed request_id=%s status=%d elapsed_ms=%d",
+        request_id,
+        response.status_code,
+        round((time.perf_counter() - started_at) * 1000)
+    )
+    return response
+
+
+def require_backend_token(x_face_service_token: str | None = Header(default=None)):
+    expected_token = os.environ.get("FACE_SERVICE_TOKEN")
+    if not expected_token:
+        raise HTTPException(
+            status_code=503,
+            detail="Face service authentication is not configured."
+        )
+    if not x_face_service_token or not hmac.compare_digest(
+        x_face_service_token,
+        expected_token
+    ):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid face service credentials."
+        )
 
 
 # Load AI models once when the service starts
@@ -35,8 +117,11 @@ def health_check():
     }
 
 
-@app.post("/enroll")
-async def enroll_face(file: UploadFile = File(...)):
+@app.post("/enroll", dependencies=[Depends(require_backend_token)])
+async def enroll_face(request: Request, file: UploadFile = File(...)):
+    request_id = request.state.request_id
+    started_at = time.perf_counter()
+    logger.info("Face enrollment processing started request_id=%s", request_id)
 
     # Read uploaded image
     image_bytes = await file.read()
@@ -66,7 +151,30 @@ async def enroll_face(file: UploadFile = File(...)):
         )
 
     # Detect faces
-    faces = detector.detect_faces(image)
+    inference_started_at = time.perf_counter()
+    logger.info("InsightFace inference started request_id=%s", request_id)
+    try:
+        faces = await run_in_threadpool(detect_faces_serially, image)
+    except Exception as error:
+        logger.error(
+            "InsightFace inference failed request_id=%s elapsed_ms=%d error_type=%s error_detail=%s",
+            request_id,
+            round((time.perf_counter() - inference_started_at) * 1000),
+            type(error).__name__,
+            safe_error_detail(error)
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="Face detection failed. Please try again with a clear photo."
+        ) from error
+
+    inference_elapsed_ms = round((time.perf_counter() - inference_started_at) * 1000)
+    logger.info(
+        "InsightFace inference completed request_id=%s elapsed_ms=%d face_count=%d",
+        request_id,
+        inference_elapsed_ms,
+        len(faces)
+    )
 
     # No face
     if len(faces) == 0:
@@ -88,6 +196,13 @@ async def enroll_face(file: UploadFile = File(...)):
     # Get 512-dimensional embedding
     embedding = faces[0].embedding
 
+    logger.info(
+        "Face enrollment processing completed request_id=%s elapsed_ms=%d embedding_length=%d",
+        request_id,
+        round((time.perf_counter() - started_at) * 1000),
+        len(embedding)
+    )
+
     return {
         "status": "success",
         "message": "Face enrolled successfully.",
@@ -95,7 +210,7 @@ async def enroll_face(file: UploadFile = File(...)):
     }
 
 
-@app.post("/recognize")
+@app.post("/recognize", dependencies=[Depends(require_backend_token)])
 async def recognize_faces(
     file: UploadFile = File(...),
     students_json: str = Form(..., description="JSON string of enrolled students with their embeddings")
@@ -146,7 +261,7 @@ async def recognize_faces(
         )
 
     # Detect faces in group photo
-    faces = detector.detect_faces(image)
+    faces = await run_in_threadpool(detect_faces_serially, image)
 
     if len(faces) == 0:
         return {

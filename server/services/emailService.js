@@ -114,7 +114,7 @@ const sendOTPEmail = async (email, otp) => {
 
     await transporter.sendMail(mailOptions);
 
-    console.log(`OTP email sent successfully to ${email}`);
+    console.log("Password reset email sent successfully.");
 };
 
 /*

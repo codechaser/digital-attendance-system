@@ -2,6 +2,9 @@ const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
+const enrollFaceImage = require("../services/faceEnrollmentService");
+const { saveFacePhoto, removeStoredImage } = require("../services/objectStorageService");
+const getSafeErrorDetails = require("../utils/safeErrorDetails");
 
 const { sendOTPEmail } = require("../services/emailService");
 
@@ -10,7 +13,15 @@ const { sendOTPEmail } = require("../services/emailService");
 // ======================================================
 
 const registerUser = async (req, res) => {
+    let storedFacePhotoUrl = null;
+    const startedAt = Date.now();
+    let stage = "request validation";
+
     try {
+        console.info("Registration processing started", {
+            requestId: req.requestId,
+            imageBytes: req.file?.size || 0
+        });
         const {
             name,
             email,
@@ -45,7 +56,6 @@ const registerUser = async (req, res) => {
         // CHECK EXISTING USER
         const normalizedEmail =
             email.trim().toLowerCase();
-
         const existingUser =
             await User.findOne({
                 email: normalizedEmail
@@ -56,6 +66,47 @@ const registerUser = async (req, res) => {
                 message:
                     "User already exists"
             });
+        }
+
+        let faceEmbedding = null;
+        let facePhotoUrl = null;
+        if (requestedRole === "student") {
+            if (!req.file) {
+                return res.status(400).json({ message: "Please upload a clear face photo to enroll your face." });
+            }
+
+            stage = "Cloudinary photo upload";
+            const photoUploadStartedAt = Date.now();
+            console.info("Registration photo storage started", { requestId: req.requestId });
+            const storedPhoto = await saveFacePhoto(req.file);
+            console.info("Registration photo storage completed", {
+                requestId: req.requestId,
+                elapsedMs: Date.now() - photoUploadStartedAt
+            });
+            storedFacePhotoUrl = storedPhoto.url;
+            facePhotoUrl = storedPhoto.url;
+
+            try {
+                stage = "InsightFace enrollment";
+                faceEmbedding = await enrollFaceImage(req.file, req.requestId);
+            } catch (error) {
+                const status = Number(error.statusCode || error.status) || 502;
+                console.error("Registration face enrollment failed", {
+                    requestId: req.requestId,
+                    elapsedMs: Date.now() - startedAt,
+                    status,
+                    upstreamStatus: error.response?.status || null,
+                    ...getSafeErrorDetails(error)
+                });
+                await removeStoredImage(storedFacePhotoUrl);
+                storedFacePhotoUrl = null;
+                return res.status(status).json({
+                    message: error.publicMessage || error.response?.data?.detail ||
+                        (status < 500 ? error.message : "Face enrollment service is unavailable. Please try again later."),
+                    requestId: req.requestId,
+                    stage
+                });
+            }
         }
 
         // HASH PASSWORD
@@ -73,8 +124,9 @@ const registerUser = async (req, res) => {
             facultyApprovedAt = null;
         }
 
-        // CREATE USER
-        const user = await User.create({
+        // Save the embedding and the URL from this registration's one upload
+        // together on the same student document.
+        const user = new User({
             name: name.trim(),
             email: normalizedEmail,
             password: hashedPassword,
@@ -83,9 +135,20 @@ const registerUser = async (req, res) => {
             department: department
                 ? department.trim()
                 : null,
+            faceEmbedding,
+            facePhotoUrl,
             facultyStatus,
             facultyRegisteredAt,
             facultyApprovedAt
+        });
+
+        stage = "MongoDB user save";
+        await user.save();
+        storedFacePhotoUrl = null;
+        console.info("Registration processing completed", {
+            requestId: req.requestId,
+            elapsedMs: Date.now() - startedAt,
+            embeddingLength: user.faceEmbedding?.length || 0
         });
 
         return res.status(201).json({
@@ -100,6 +163,7 @@ const registerUser = async (req, res) => {
                 email: user.email,
                 role: user.role,
                 department: user.department,
+                facePhotoUrl: user.facePhotoUrl,
                 facultyStatus:
                     user.facultyStatus,
                 facultyRegisteredAt:
@@ -110,13 +174,22 @@ const registerUser = async (req, res) => {
         });
 
     } catch (error) {
-        console.error(
-            "Registration Error:",
-            error.message
-        );
+        console.error("Registration processing failed", {
+            requestId: req.requestId,
+            stage,
+            elapsedMs: Date.now() - startedAt,
+            status: Number(error.statusCode || error.status) || 500,
+            upstreamStatus: error.response?.status || null,
+            ...getSafeErrorDetails(error)
+        });
+        await removeStoredImage(storedFacePhotoUrl);
 
-        return res.status(500).json({
-            message: "Server error"
+        const status = Number(error.statusCode || error.status) || 500;
+        return res.status(status).json({
+            message: error.publicMessage ||
+                (status < 500 ? error.message : `Unable to complete ${stage.toLowerCase()}. Please try again later.`),
+            requestId: req.requestId,
+            stage
         });
     }
 };
@@ -218,6 +291,7 @@ const loginUser = async (req, res) => {
                 email: user.email,
                 role: user.role,
                 department: user.department,
+                facePhotoUrl: user.facePhotoUrl,
                 facultyStatus:
                     user.facultyStatus,
                 facultyRegisteredAt:

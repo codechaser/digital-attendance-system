@@ -1038,6 +1038,148 @@ select {
   font-size: 14px;
 }
 
+.profile-face-photo-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.registered-face-photo-group {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: 0;
+}
+
+.registered-face-photo-preview-link {
+  display: inline-flex;
+  border-radius: var(--radius-sm);
+}
+
+.registered-face-photo {
+  display: block;
+  width: 112px;
+  height: 112px;
+  max-width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  object-fit: cover;
+}
+
+.face-photo-unavailable {
+  overflow-wrap: anywhere;
+  color: var(--color-muted);
+}
+
+.face-photo-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 1px solid var(--color-primary-100);
+  border-radius: var(--radius-sm);
+  background: var(--color-primary-50);
+  color: var(--color-primary-800);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.face-photo-link:hover,
+.face-photo-link:focus-visible {
+  border-color: var(--color-primary-600);
+  background: #e7efff;
+  outline: none;
+}
+
+.profile-face-photo-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.face-photo-upload-button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 7px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--color-heading);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.face-photo-upload-button:hover,
+.face-photo-upload-button:focus-within {
+  border-color: var(--color-primary-600);
+  color: var(--color-primary-800);
+}
+
+.face-photo-upload-button.is-busy {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.visually-hidden-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.visually-hidden-file-input:focus-visible + .face-photo-upload-button {
+  outline: 3px solid rgba(37, 99, 235, 0.22);
+  outline-offset: 2px;
+}
+
+.profile-face-photo-error {
+  flex-basis: 100%;
+  color: #b91c1c;
+  font-size: 12px;
+}
+
+.users-table-container {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.users-table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  background: var(--color-surface);
+  text-align: left;
+}
+
+.users-table th,
+.users-table td {
+  padding: 13px 14px;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text);
+  vertical-align: middle;
+}
+
+.users-table th {
+  background: var(--color-page-deep);
+  color: var(--color-muted);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 .dashboard-card button {
   margin-top: auto;
 }
@@ -1976,5 +2118,571 @@ select {
   .settings-values strong {
     max-width: 100%;
     text-align: left;
+  }
+}
+
+/* Registration page matched to the supplied attendance portal reference. */
+.registration-page {
+  min-height: 100vh;
+  justify-content: center;
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
+  background: #eef3fc;
+}
+
+.registration-page::before { display: none; }
+
+.registration-hero {
+  position: relative;
+  display: flex;
+  flex: 0 1 780px;
+  min-height: 100vh;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 22px clamp(28px, 5vw, 76px) 18px;
+  color: #fff;
+  background: linear-gradient(145deg, #173780 0%, #1d4ed8 57%, #2563eb 100%);
+}
+
+.registration-hero::after {
+  position: absolute;
+  right: -130px;
+  bottom: -190px;
+  width: 520px;
+  height: 520px;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 50%;
+  content: "";
+}
+
+.registration-brand { display: flex; align-items: center; gap: 12px; z-index: 1; }
+.registration-brand span { display: grid; width: 42px; height: 42px; place-items: center; border: 1px solid rgba(255,255,255,.3); border-radius: 13px; background: rgba(255,255,255,.14); font-size: 13px; font-weight: 800; }
+.registration-brand strong { font-size: 19px; }
+.registration-copy { z-index: 1; margin-top: clamp(75px, 12vh, 140px); max-width: 560px; }
+.registration-eyebrow { margin-bottom: 24px; color: #c7dcff; font-size: 13px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+.registration-copy h2 { max-width: 520px; margin: 0 0 20px; color: #fff; font-size: clamp(38px, 4vw, 60px); font-weight: 800; letter-spacing: -.045em; line-height: 1.12; }
+.registration-description { max-width: 540px; color: #e7efff; font-size: 17px; line-height: 1.8; }
+.hero-visual { position: absolute; right: 9%; bottom: 7%; width: 360px; height: 240px; transform: rotate(-18deg); }
+.hero-orbit { position: absolute; inset: 20px -75px; border: 1px solid rgba(255,255,255,.14); border-radius: 50%; transform: rotate(20deg); }
+.hero-device { position: absolute; top: 30px; left: 34px; width: 300px; height: 150px; border: 2px solid rgba(198,216,255,.55); border-radius: 28px; background: linear-gradient(135deg, rgba(255,255,255,.09), rgba(255,255,255,.015)); box-shadow: 0 25px 0 -8px rgba(11,40,131,.35), 0 28px 0 -7px rgba(198,216,255,.3); }
+.hero-callout { position: absolute; z-index: 1; display: flex; align-items: center; gap: 10px; padding: 12px 15px; border: 1px solid rgba(255,255,255,.2); border-radius: 14px; background: rgba(17,53,145,.72); box-shadow: 0 8px 22px rgba(9,31,91,.15); }
+.hero-callout span { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 9px; background: #34d399; color: #075b4b; font-weight: 800; }
+.hero-callout strong,.hero-callout small { display: block; }
+.hero-callout strong { font-size: 13px; }
+.hero-callout small { margin-top: 2px; color: #d8e5ff; font-size: 11px; }
+.face-callout { left: 10%; bottom: 21%; }
+.records-callout { right: 10%; bottom: 7%; }
+.records-callout span { color: #fff; font-size: 13px; }
+.registration-audience { z-index: 1; margin-top: auto; color: #d8e5ff; font-size: 12px; }
+.registration-card { position: relative; display: flex; flex: 1 1 650px; max-width: 650px; min-height: 100vh; flex-direction: column; justify-content: center; padding: 52px clamp(38px, 6vw, 90px); border: 0; border-radius: 0; box-shadow: none; }
+.secure-login-indicator { position: absolute; top: 24px; right: clamp(38px, 6vw, 90px); display: flex; align-items: center; gap: 9px; color: #526987; font-size: 12px; }
+.secure-login-indicator span { display: grid; width: 23px; height: 23px; place-items: center; border-radius: 50%; background: #e7fbf4; color: #16a875; font-size: 13px; font-weight: 800; }
+.secure-login-indicator strong { font-weight: 700; }
+.registration-card .login-header { margin-bottom: 32px; text-align: left; }
+.registration-card .login-header h1 { margin-bottom: 8px; font-size: 36px; letter-spacing: -.035em; }
+.registration-card .login-header p { color: #64748b; font-size: 16px; }
+.registration-card .input-group { margin-bottom: 17px; }
+.registration-card .input-group label { margin-bottom: 8px; color: #0f172a; font-size: 13px; }
+.registration-card .input-group input:not([type="file"]),.registration-card select { min-height: 54px; padding: 14px 16px; border: 1px solid #d3deee; border-radius: 11px; background: #fbfdff; color: #13203a; }
+.registration-card .input-group input::placeholder { color: #8b9bb5; }
+.registration-card .photo-group input[type="file"] { width: 100%; min-height: 60px; padding: 13px 16px; border: 1px solid #d3deee; border-radius: 11px; background: #fbfdff; color: #475569; }
+.registration-card .photo-group small { display: block; margin-top: 8px; color: #64748b; font-size: 12px; line-height: 1.5; }
+.registration-card .photo-group .photo-size-note { margin-top: 2px; }
+.face-photo-preview { display: flex; align-items: center; gap: 12px; margin-top: 12px; padding: 9px 11px; border: 1px solid #dbe5f2; border-radius: 10px; background: #f7faff; }
+.face-photo-preview img { width: 52px; height: 52px; flex: 0 0 auto; border-radius: 8px; object-fit: cover; }
+.face-photo-preview span { overflow: hidden; color: #334155; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.registration-card form > button { min-height: 56px; margin-top: 3px; border-radius: 11px; box-shadow: 0 5px 12px rgba(37,99,235,.2); }
+.registration-card .register-text { margin-top: 22px; }
+.auth-error { margin: -10px 0 16px; padding: 11px 13px; border: 1px solid #fecaca; border-radius: 9px; background: #fef2f2; color: #991b1b; font-size: 13px; line-height: 1.45; }
+
+/* Persistent app-wide theme control and dark glass surfaces. */
+.theme-toggle {
+  position: fixed;
+  z-index: 1000;
+  top: 14px;
+  right: 16px;
+  width: auto;
+  min-width: 88px;
+  min-height: 38px;
+  padding: 8px 13px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-heading);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.theme-toggle:hover {
+  transform: translateY(-1px);
+  border-color: var(--color-primary-600);
+  background: var(--color-surface);
+}
+
+.theme-toggle:focus-visible {
+  outline: 3px solid var(--color-primary-600);
+  outline-offset: 3px;
+}
+
+.dashboard-header,
+.dashboard-topbar,
+.admin-page-header,
+.subjects-header,
+.page-header,
+.attendance-header {
+  padding-right: 110px;
+}
+
+.secure-login-indicator {
+  right: 130px;
+}
+
+:root[data-theme="dark"] body {
+  color: var(--color-text);
+  background:
+    radial-gradient(ellipse at 12% 8%, rgba(53, 87, 168, 0.23), transparent 34%),
+    radial-gradient(ellipse at 88% 18%, rgba(106, 70, 165, 0.16), transparent 32%),
+    linear-gradient(135deg, #080d19 0%, #0b1221 54%, #0c1020 100%);
+}
+
+:root[data-theme="dark"] html {
+  background: #080d19;
+}
+
+:root[data-theme="dark"] h1,
+:root[data-theme="dark"] h2,
+:root[data-theme="dark"] h3,
+:root[data-theme="dark"] h4,
+:root[data-theme="dark"] strong {
+  color: var(--color-heading);
+}
+
+:root[data-theme="dark"] .dashboard,
+:root[data-theme="dark"] .dashboard-container,
+:root[data-theme="dark"] .login-page {
+  color: var(--color-text);
+  background: transparent;
+}
+
+:root[data-theme="dark"] .login-page::before {
+  background: linear-gradient(90deg, #3b82f6, #818cf8);
+}
+
+:root[data-theme="dark"] .login-card,
+:root[data-theme="dark"] .registration-card,
+:root[data-theme="dark"] .dashboard-card,
+:root[data-theme="dark"] .faculty-status-card,
+:root[data-theme="dark"] .dashboard-footer,
+:root[data-theme="dark"] .attendance-section,
+:root[data-theme="dark"] .self-attendance,
+:root[data-theme="dark"] .attendance-records,
+:root[data-theme="dark"] .pending-attendance,
+:root[data-theme="dark"] .finalize-attendance,
+:root[data-theme="dark"] .admin-attendance,
+:root[data-theme="dark"] .admin-faculty-approval,
+:root[data-theme="dark"] .admin-users,
+:root[data-theme="dark"] .student-subjects,
+:root[data-theme="dark"] .summary-card,
+:root[data-theme="dark"] .subject-summary,
+:root[data-theme="dark"] .attendance-summary,
+:root[data-theme="dark"] .subject-card,
+:root[data-theme="dark"] .subject-attendance-card,
+:root[data-theme="dark"] .attendance-stat-card,
+:root[data-theme="dark"] .faculty-stat-card,
+:root[data-theme="dark"] .user-stat-card,
+:root[data-theme="dark"] .pending-card,
+:root[data-theme="dark"] .settings-card,
+:root[data-theme="dark"] .settings-status-card,
+:root[data-theme="dark"] .settings-highlight,
+:root[data-theme="dark"] .profile-detail,
+:root[data-theme="dark"] .validity-panel,
+:root[data-theme="dark"] .attendance-filter-bar,
+:root[data-theme="dark"] .attendance-filters,
+:root[data-theme="dark"] .attendance-search,
+:root[data-theme="dark"] .attendance-filter,
+:root[data-theme="dark"] .role-filter,
+:root[data-theme="dark"] .subject-selection,
+:root[data-theme="dark"] .self-attendance-steps,
+:root[data-theme="dark"] .ai-verification-box {
+  border-color: var(--color-border);
+  background: var(--color-surface);
+  box-shadow: 0 12px 38px rgba(0, 0, 0, 0.26), inset 0 1px rgba(255, 255, 255, 0.035);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+:root[data-theme="dark"] .dashboard-card,
+:root[data-theme="dark"] .subject-card,
+:root[data-theme="dark"] .subject-attendance-card,
+:root[data-theme="dark"] .summary-card,
+:root[data-theme="dark"] .pending-card {
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+:root[data-theme="dark"] .dashboard-card:hover,
+:root[data-theme="dark"] .subject-card:hover,
+:root[data-theme="dark"] .subject-attendance-card:hover,
+:root[data-theme="dark"] .summary-card:hover,
+:root[data-theme="dark"] .pending-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(147, 197, 253, 0.32);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.32);
+}
+
+:root[data-theme="dark"] .registration-card .login-header p,
+:root[data-theme="dark"] .registration-card .input-group label,
+:root[data-theme="dark"] .registration-card .photo-group small,
+:root[data-theme="dark"] .secure-login-indicator,
+:root[data-theme="dark"] .register-text,
+:root[data-theme="dark"] .login-header p {
+  color: var(--color-muted);
+}
+
+:root[data-theme="dark"] .registration-card .input-group input:not([type="file"]),
+:root[data-theme="dark"] .registration-card select,
+:root[data-theme="dark"] .registration-card .photo-group input[type="file"],
+:root[data-theme="dark"] .input-group input,
+:root[data-theme="dark"] input:not([type="file"]):not([type="checkbox"]):not([type="radio"]),
+:root[data-theme="dark"] select,
+:root[data-theme="dark"] textarea {
+  border-color: rgba(226, 232, 240, 0.14);
+  background: rgba(255, 255, 255, 0.055);
+  color: #f8fafc;
+}
+
+:root[data-theme="dark"] input::placeholder,
+:root[data-theme="dark"] textarea::placeholder {
+  color: #94a3b8;
+  opacity: 1;
+}
+
+:root[data-theme="dark"] input:focus,
+:root[data-theme="dark"] select:focus,
+:root[data-theme="dark"] textarea:focus {
+  border-color: rgba(96, 165, 250, 0.78);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+  outline: none;
+}
+
+:root[data-theme="dark"] option {
+  background: #111a2d;
+  color: #f8fafc;
+}
+
+:root[data-theme="dark"] .face-photo-preview,
+:root[data-theme="dark"] .profile-face-photo-actions,
+:root[data-theme="dark"] .face-photo-upload-button,
+:root[data-theme="dark"] .back-btn,
+:root[data-theme="dark"] .reset-filter-btn,
+:root[data-theme="dark"] .refresh-btn,
+:root[data-theme="dark"] .refresh-button,
+:root[data-theme="dark"] .finalized-badge,
+:root[data-theme="dark"] .not-finalized-badge {
+  border-color: var(--color-border);
+  background: rgba(255, 255, 255, 0.055);
+  color: var(--color-text);
+}
+
+:root[data-theme="dark"] .face-photo-preview span,
+:root[data-theme="dark"] .settings-highlight strong,
+:root[data-theme="dark"] .ai-verification-box strong,
+:root[data-theme="dark"] .face-photo-link {
+  color: var(--color-primary-700);
+}
+
+:root[data-theme="dark"] .face-photo-link {
+  border-color: rgba(96, 165, 250, 0.25);
+  background: rgba(59, 130, 246, 0.12);
+}
+
+:root[data-theme="dark"] .attendance-table-container,
+:root[data-theme="dark"] .faculty-table-container,
+:root[data-theme="dark"] .user-table-container,
+:root[data-theme="dark"] .users-table-container {
+  border-color: var(--color-border);
+  background: rgba(14, 21, 37, 0.76);
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(18px);
+}
+
+:root[data-theme="dark"] .attendance-table,
+:root[data-theme="dark"] .faculty-table,
+:root[data-theme="dark"] .user-table,
+:root[data-theme="dark"] .users-table {
+  background: rgba(14, 21, 37, 0.72);
+}
+
+:root[data-theme="dark"] .attendance-table th,
+:root[data-theme="dark"] .faculty-table th,
+:root[data-theme="dark"] .user-table th,
+:root[data-theme="dark"] .users-table th {
+  border-color: var(--color-border);
+  background: rgba(255, 255, 255, 0.075);
+  color: #cbd5e1;
+}
+
+:root[data-theme="dark"] .attendance-table td,
+:root[data-theme="dark"] .faculty-table td,
+:root[data-theme="dark"] .user-table td,
+:root[data-theme="dark"] .users-table td,
+:root[data-theme="dark"] .settings-values > div {
+  border-color: rgba(226, 232, 240, 0.09);
+  color: var(--color-text);
+}
+
+:root[data-theme="dark"] .attendance-table tbody tr:hover,
+:root[data-theme="dark"] .faculty-table tbody tr:hover,
+:root[data-theme="dark"] .user-table tbody tr:hover,
+:root[data-theme="dark"] .users-table tbody tr:hover {
+  background: rgba(96, 165, 250, 0.08);
+}
+
+:root[data-theme="dark"] .attendance-badge.present,
+:root[data-theme="dark"] .review-badge.approved {
+  border-color: rgba(74, 222, 128, 0.25);
+  background: rgba(34, 197, 94, 0.16);
+  color: #86efac;
+}
+
+:root[data-theme="dark"] .attendance-badge.absent,
+:root[data-theme="dark"] .review-badge.rejected {
+  border-color: rgba(248, 113, 113, 0.25);
+  background: rgba(239, 68, 68, 0.16);
+  color: #fca5a5;
+}
+
+:root[data-theme="dark"] .attendance-badge.late,
+:root[data-theme="dark"] .review-badge.pending {
+  border-color: rgba(251, 191, 36, 0.28);
+  background: rgba(245, 158, 11, 0.16);
+  color: #fcd34d;
+}
+
+:root[data-theme="dark"] .auth-error {
+  border-color: rgba(248, 113, 113, 0.3);
+  background: rgba(127, 29, 29, 0.3);
+  color: #fecaca;
+}
+
+:root[data-theme="dark"] .success-toast {
+  border: 1px solid rgba(74, 222, 128, 0.28);
+  background: rgba(15, 46, 39, 0.92);
+  color: #dcfce7;
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(16px);
+}
+
+:root[data-theme="dark"] .secure-login-indicator span {
+  background: rgba(34, 197, 94, 0.18);
+  color: #6ee7b7;
+}
+
+:root[data-theme="dark"] button:not(.theme-toggle):not(.back-btn):not(.reset-filter-btn):not(.refresh-btn):not(.refresh-button):not(.reject-btn):not(.logout-btn):not(.approve-btn) {
+  border-color: rgba(147, 197, 253, 0.28);
+  background: #1d4ed8;
+  color: #ffffff;
+}
+
+:root[data-theme="dark"] button:not(.theme-toggle):not(.back-btn):not(.reset-filter-btn):not(.refresh-btn):not(.refresh-button):not(.reject-btn):not(.logout-btn):not(.approve-btn):hover:not(:disabled) {
+  background: #1e40af;
+}
+
+:root[data-theme="dark"] button:disabled {
+  opacity: 0.58;
+}
+
+:root[data-theme="dark"] .back-btn:hover,
+:root[data-theme="dark"] .reset-filter-btn:hover,
+:root[data-theme="dark"] .refresh-btn:hover,
+:root[data-theme="dark"] .refresh-button:hover {
+  border-color: rgba(147, 197, 253, 0.3);
+  background: rgba(96, 165, 250, 0.13);
+  color: #dbeafe;
+}
+
+:root[data-theme="dark"] ::selection {
+  background: rgba(96, 165, 250, 0.35);
+  color: #fff;
+}
+
+@media (max-width: 520px) {
+  .theme-toggle {
+    top: 10px;
+    right: 10px;
+    min-width: 80px;
+    min-height: 36px;
+    padding: 7px 10px;
+    font-size: 12px;
+  }
+
+  .secure-login-indicator {
+    right: 104px;
+  }
+}
+
+@media (max-width: 700px) {
+  .dashboard-header,
+  .dashboard-topbar,
+  .admin-page-header,
+  .subjects-header,
+  .page-header,
+  .attendance-header {
+    padding-right: 0;
+    padding-top: 48px;
+  }
+}
+
+@media (max-width: 900px) {
+  .registration-page { flex-direction: column; }
+  .registration-hero { flex: none; min-height: 380px; padding: 22px 28px; }
+  .registration-copy { margin-top: 50px; }
+  .registration-copy h2 { max-width: 440px; font-size: 42px; }
+  .registration-description { max-width: 430px; font-size: 15px; }
+  .hero-visual,.hero-callout,.registration-audience { display: none; }
+  .registration-card { flex: none; width: 100%; max-width: none; min-height: auto; padding: 42px clamp(24px, 8vw, 70px); }
+}
+
+@media (max-width: 520px) {
+  .registration-hero { min-height: 330px; }
+  .registration-copy { margin-top: 38px; }
+  .registration-copy h2 { font-size: 36px; }
+  .registration-card .login-header h1 { font-size: 30px; }
+}
+
+/* Shared viewport safeguards and touch sizing across all role screens. */
+html,
+body,
+#root {
+  width: 100%;
+  min-width: 320px;
+  max-width: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  max-width: 100%;
+}
+
+button,
+input:not([type="checkbox"]):not([type="radio"]),
+select {
+  min-height: 44px;
+}
+
+.dashboard-grid > *,
+.subjects-grid > *,
+.attendance-summary-grid > *,
+.attendance-stats > *,
+.faculty-stats > *,
+.user-stats > *,
+.settings-grid > *,
+.settings-status-grid > *,
+.profile-details-grid > * {
+  min-width: 0;
+}
+
+.dashboard-card p,
+.dashboard-header p,
+.faculty-email,
+.profile-detail,
+.profile-face-photo-row,
+.settings-values strong,
+.attendance-user,
+.faculty-info {
+  overflow-wrap: anywhere;
+}
+
+.attendance-table-container,
+.faculty-table-container,
+.user-table-container,
+.users-table-container {
+  max-width: 100%;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.registered-face-photo-preview-link {
+  flex: 0 0 auto;
+}
+
+.registered-face-photo-group .face-photo-link {
+  max-width: 100%;
+  min-height: 44px;
+}
+
+@media (max-width: 700px) {
+  .theme-toggle {
+    min-height: 44px;
+  }
+
+  .dashboard-header,
+  .dashboard-topbar,
+  .admin-page-header,
+  .subjects-header,
+  .page-header,
+  .attendance-header {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .profile-face-photo-row,
+  .registered-face-photo-group {
+    align-items: flex-start;
+  }
+
+  .registered-face-photo-group {
+    flex-direction: column;
+  }
+
+  .registered-face-photo-group .face-photo-link {
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 380px) {
+  .dashboard,
+  .dashboard-container {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .dashboard-card,
+  .attendance-records,
+  .pending-attendance,
+  .finalize-attendance,
+  .admin-attendance,
+  .admin-faculty-approval,
+  .admin-users,
+  .student-subjects,
+  .self-attendance,
+  .system-settings-page {
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+
+  .registration-hero {
+    padding-right: 18px;
+    padding-left: 18px;
+  }
+
+  .registration-copy h2 {
+    font-size: clamp(30px, 9vw, 36px);
+  }
+
+  .registration-card {
+    padding-right: 18px;
+    padding-left: 18px;
+  }
+
+  .secure-login-indicator {
+    right: 100px;
   }
 }

@@ -4,7 +4,8 @@ const User = require("../models/User");
 
 const axios = require("axios");
 const FormData = require("form-data");
-const fs = require("fs");
+const { saveGroupPhoto, removeStoredImage } = require("../services/objectStorageService");
+const { getFaceServiceUrl } = require("../config/faceService");
 
 // ======================================================
 // CALCULATE DISTANCE BETWEEN TWO LOCATIONS
@@ -56,6 +57,7 @@ const calculateDistance = (
 // ======================================================
 
 const markAttendance = async (req, res) => {
+    let storedGroupPhotoUrl = null;
 
     try {
 
@@ -66,9 +68,7 @@ const markAttendance = async (req, res) => {
             method
         } = req.body;
      
-        const groupPhotoUrl = req.file
-    ? `/uploads/group-photos/${req.file.filename}`
-    : null;
+        let groupPhotoUrl = null;
 
         // =========================
         // VALIDATION
@@ -274,6 +274,11 @@ const markAttendance = async (req, res) => {
         // CREATE ATTENDANCE
         // =========================
 
+        if (req.file) {
+            groupPhotoUrl = (await saveGroupPhoto(req.file)).url;
+            storedGroupPhotoUrl = groupPhotoUrl;
+        }
+
         const attendance =
             await Attendance.create({
 
@@ -314,6 +319,7 @@ const markAttendance = async (req, res) => {
                 finalizedAt:
                     null
             });
+        storedGroupPhotoUrl = null;
 
 
         // =========================
@@ -352,6 +358,7 @@ const markAttendance = async (req, res) => {
 
 
     } catch (error) {
+        await removeStoredImage(storedGroupPhotoUrl);
 
         console.error(
             "Attendance Error:",
@@ -359,7 +366,7 @@ const markAttendance = async (req, res) => {
         );
 
 
-        return res.status(500).json({
+        return res.status(error.statusCode || 500).json({
             message:
                 "Server error"
         });
@@ -829,10 +836,18 @@ const selfAttendance = async (
             error.message
         );
 
+        const statusCode =
+            error.statusCode ||
+            error.response?.status ||
+            500;
 
-        return res.status(500).json({
+        const errorMessage =
+            error.message ||
+            "Unable to submit self attendance.";
+
+        return res.status(statusCode).json({
             message:
-                "Server error"
+                errorMessage
         });
     }
 };
@@ -1456,6 +1471,9 @@ const getAttendanceHistory =
 // ======================================================
 
 const recognizeGroupPhoto = async (req, res) => {
+    let storedGroupPhotoUrl = null;
+    let attendanceCreated = false;
+
     try {
         const { subjectId } = req.body;
 
@@ -1527,7 +1545,7 @@ const recognizeGroupPhoto = async (req, res) => {
 
         formData.append(
             "file",
-            fs.createReadStream(req.file.path),
+            req.file.buffer,
             {
                 filename: req.file.originalname,
                 contentType: req.file.mimetype
@@ -1541,13 +1559,15 @@ const recognizeGroupPhoto = async (req, res) => {
 
         // Send group photo to Python AI service
         const aiResponse = await axios.post(
-            `${process.env.FACE_SERVICE_URL}/recognize`,
+            `${getFaceServiceUrl()}/recognize`,
             formData,
             {
                 headers: {
-                    ...formData.getHeaders()
+                    ...formData.getHeaders(),
+                    "X-Face-Service-Token": process.env.FACE_SERVICE_TOKEN
                 },
-                maxBodyLength: Infinity
+                maxBodyLength: Infinity,
+                timeout: 30000
             }
         );
 
@@ -1569,6 +1589,8 @@ const recognizeGroupPhoto = async (req, res) => {
                 recognizedStudents: []
             });
         }
+
+        storedGroupPhotoUrl = (await saveGroupPhoto(req.file)).url;
 
         const now = new Date();
 
@@ -1639,14 +1661,14 @@ const recognizeGroupPhoto = async (req, res) => {
                     status: "Present",
                     method: "Face Recognition",
                     attendanceType: "Group Photo",
-                    groupPhotoUrl:
-                        `/uploads/group-photos/${req.file.filename}`,
+                    groupPhotoUrl: storedGroupPhotoUrl,
                     reviewStatus: "Pending",
                     teacherComment: "",
                     finalizedAt: null,
                     faceVerified: match.match === true,
                     faceSimilarity: match.similarity ?? null
                 });
+            attendanceCreated = true;
 
             attendanceResults.push({
                 studentId: student._id,
@@ -1668,19 +1690,20 @@ const recognizeGroupPhoto = async (req, res) => {
         });
 
     } catch (error) {
+        if (!attendanceCreated) {
+            await removeStoredImage(storedGroupPhotoUrl);
+        }
 
         console.error(
-            "Group Photo Recognition Error:",
-            error.response?.data ||
+            "Group photo recognition failed:",
             error.message
         );
 
-        return res.status(
-            error.response?.status || 500
-        ).json({
+        const status = error.response?.status || error.statusCode || 500;
+        return res.status(status).json({
             message:
                 error.response?.data?.detail ||
-                "Unable to recognize group photo."
+                (status < 500 ? error.message : "Unable to recognize group photo.")
         });
     }
 };
@@ -1742,10 +1765,13 @@ const verifyStudentSelfie = async (studentId, file) => {
 
     try {
         aiResponse = await axios.post(
-            `${process.env.FACE_SERVICE_URL}/recognize`,
+            `${getFaceServiceUrl()}/recognize`,
             formData,
             {
-                headers: formData.getHeaders(),
+                headers: {
+                    ...formData.getHeaders(),
+                    "X-Face-Service-Token": process.env.FACE_SERVICE_TOKEN
+                },
                 maxBodyLength: Infinity,
                 timeout: 20000
             }
